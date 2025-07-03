@@ -1,0 +1,76 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <base target="_top">
+    <style>
+      body { font-family: Arial, sans-serif; padding: 10px; }
+      input, button { margin: 5px 0; width: 100%; padding: 5px; }
+      a { display: block; margin-top: 10px; word-wrap: break-word; }
+    </style>
+  </head>
+  <body>
+    <h3>Image Search</h3>
+    <label for="rowInput">Row Number:</label>
+    <input type="number" id="rowInput" min="2" />
+    <button onclick="loadRow()">Load</button>
+    <button onclick="prevRow()">Previous</button>
+    <button onclick="nextRow()">Next</button>
+    <button onclick="highlight()">Highlight Row</button>
+
+    <p id="loading" style="color: grey;"></p>
+    <div id="result"></div>
+
+    <script>
+      let currentRow = 2;
+
+      function loadRow(row = null) {
+        const rowInput = document.getElementById("rowInput");
+        const loading = document.getElementById("loading");
+        const resultDiv = document.getElementById("result");
+
+        if (row !== null) {
+          currentRow = row;
+        } else {
+          currentRow = parseInt(rowInput.value) || 2;
+        }
+
+        rowInput.value = currentRow;
+        loading.textContent = "Loading...";
+        resultDiv.innerHTML = "";
+
+        google.script.run.withSuccessHandler(function(data) {
+          loading.textContent = "";
+          if (data.url) {
+            resultDiv.innerHTML = `
+              <strong>${data.brand} ${data.model} - Color ${data.color}</strong><br/>
+              <a href="${data.url}" target="_blank">${data.url}</a>
+            `;
+          } else {
+            resultDiv.innerHTML = "<em>No valid data in selected row.</em>";
+          }
+        }).getImageSearchUrl(currentRow);
+      }
+
+      function nextRow() {
+        loadRow(currentRow + 1);
+      }
+
+      function prevRow() {
+        if (currentRow > 2) loadRow(currentRow - 1);
+      }
+
+      function highlight() {
+        google.script.run.highlightRow(currentRow);
+      }
+
+      document.getElementById("rowInput").addEventListener("keypress", function(e) {
+        if (e.key === "Enter") loadRow();
+      });
+
+      // Auto-load last used row
+      google.script.run.withSuccessHandler(function(lastRow) {
+        loadRow(lastRow);
+      }).getLastUsedRow();
+    </script>
+  </body>
+</html>
