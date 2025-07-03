@@ -1,0 +1,4 @@
+# .gitignore (place in the root or in the google-appscript-row-viewer/ folder if you wish)
+.DS_Store
+Thumbs.db
+*.log
