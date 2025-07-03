@@ -32,6 +32,17 @@
       box-sizing: border-box;
       font-size: 14px;
     }
+    .checkbox-group {
+      display: flex;
+      align-items: center;
+      margin-bottom: 10px;
+      gap: 5px;
+    }
+    .checkbox-group input[type="checkbox"] {
+      width: auto; /* Override default input width */
+      margin-right: 5px;
+      margin-bottom: 0;
+    }
     .button-group {
       display: flex;
       gap: 10px;
@@ -108,6 +119,14 @@
     <label for="columnsInput">Columns (e.g., A:O or A,C,E):</label>
     <input type="text" id="columnsInput" value="A:O" placeholder="e.g., A:O or A,B,C">
 
+    <div class="checkbox-group">
+      <input type="checkbox" id="showHeaderCheckbox" checked>
+      <label for="showHeaderCheckbox" style="margin-bottom: 0;">Show Headers</label>
+    </div>
+
+    <label for="headerRowInput">Header Row Number:</label>
+    <input type="number" id="headerRowInput" value="1" placeholder="e.g., 1">
+
     <div class="button-group">
       <button class="secondary" id="resetButton">Reset</button>
       <button class="primary" id="goButton">Go</button>
@@ -140,6 +159,8 @@
       var loader = document.getElementById('loader');
       var copyOutputButton = document.getElementById('copyOutputButton');
       var clearOutputButton = document.getElementById('clearOutputButton');
+      var showHeaderCheckbox = document.getElementById('showHeaderCheckbox');
+      var headerRowInput = document.getElementById('headerRowInput');
 
       // Function to display messages
       function showMessage(msg, isError = false) {
@@ -170,6 +191,8 @@
       function processData() {
         var rowNum = parseInt(rowNumberInput.value);
         var columnsString = columnsInput.value.trim();
+        var showHeaders = showHeaderCheckbox.checked;
+        var headerRowNum = parseInt(headerRowInput.value);
 
         if (isNaN(rowNum) || rowNum < 1) {
           showMessage("Please enter a valid row number (e.g., 15).", true);
@@ -179,14 +202,18 @@
           showMessage("Please enter columns to display (e.g., A:O or A,B,C).", true);
           return;
         }
+        if (showHeaders && (isNaN(headerRowNum) || headerRowNum < 1)) {
+          showMessage("Please enter a valid header row number (e.g., 1).", true);
+          return;
+        }
 
         showMessage("Loading...", false); // Show loading message
         showLoader(true); // Show loader
-        // Call Apps Script function
+        // Call Apps Script function with new parameters
         google.script.run
           .withSuccessHandler(onDataProcessed)
           .withFailureHandler(onFailure)
-          .processSelectedData(rowNum, columnsString);
+          .processSelectedData(rowNum, columnsString, showHeaders, headerRowNum);
       }
 
       // Event Listeners
@@ -203,10 +230,17 @@
           processData();
         }
       });
+      headerRowInput.addEventListener('keydown', function(event) {
+        if (event.key === 'Enter') {
+          processData();
+        }
+      });
 
       resetButton.addEventListener('click', function() {
         rowNumberInput.value = '';
         columnsInput.value = 'A:O'; // Reset to default
+        showHeaderCheckbox.checked = true; // Reset show headers to checked
+        headerRowInput.value = '1'; // Reset header row to 1
         outputArea.textContent = '';
         showMessage("", false); // Clear message
         showLoader(false); // Hide loader
