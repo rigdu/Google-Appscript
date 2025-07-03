@@ -70,7 +70,8 @@ function processSelectedData(rowNum, columnsString, showHeaders, headerRowNum) {
   userProperties.setProperty('lastSelectedRow', rowNum.toString());
 
   var formattedOutput = [];
-  var columnIndices = new Set(); // Use a Set to store unique column indices
+  var orderedColumnIndices = []; // This will store column indices in the desired order
+  var seenColumnIndices = new Set(); // To track unique columns and prevent duplicates
 
   // Parse columnsString
   columnsString = columnsString.toUpperCase().replace(/\s/g, ''); // Clean up input
@@ -88,7 +89,10 @@ function processSelectedData(rowNum, columnsString, showHeaders, headerRowNum) {
 
         if (startColIndex && endColIndex && startColIndex <= endColIndex) {
           for (var i = startColIndex; i <= endColIndex; i++) {
-            columnIndices.add(i);
+            if (!seenColumnIndices.has(i)) { // Add only if not already seen
+              orderedColumnIndices.push(i);
+              seenColumnIndices.add(i);
+            }
           }
         } else {
           throw new Error("Invalid column range: " + part);
@@ -100,24 +104,24 @@ function processSelectedData(rowNum, columnsString, showHeaders, headerRowNum) {
       // Handle single column letter like "A"
       var colIndex = sheet.getRange(part + "1").getColumn();
       if (colIndex) {
-        columnIndices.add(colIndex);
+        if (!seenColumnIndices.has(colIndex)) { // Add only if not already seen
+          orderedColumnIndices.push(colIndex);
+          seenColumnIndices.add(colIndex);
+        }
       } else {
         throw new Error("Invalid column letter: " + part);
       }
     }
   });
 
-  // Convert Set to Array and sort numerically
-  var sortedColumnIndices = Array.from(columnIndices).sort((a, b) => a - b);
-
-  // Fetch and format values
-  sortedColumnIndices.forEach(function(colIndex) {
+  // Fetch and format values based on the orderedColumnIndices
+  orderedColumnIndices.forEach(function(colIndex) {
     var cellValue = sheet.getRange(rowNum, colIndex).getDisplayValue(); // Get formatted value from the selected row
     var outputLine = "";
 
     if (showHeaders) {
       var headerValue = sheet.getRange(headerRowNum, colIndex).getDisplayValue(); // Get header from the specified header row
-      // Modified line: Format as "HeaderValue" - CellValue
+      // Format as "HeaderValue" - CellValue
       outputLine = `"${headerValue}" - ${cellValue}`;
     } else {
       outputLine = cellValue; // Just the value if headers are not shown
