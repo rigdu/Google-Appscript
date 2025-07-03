@@ -1,0 +1,193 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <base target="_top">
+  <style>
+    body {
+      font-family: 'Inter', sans-serif; /* Using Inter font */
+      margin: 10px;
+      background-color: #f8f9fa;
+      color: #333;
+      font-size: 14px;
+    }
+    .container {
+      padding: 15px;
+      border-radius: 8px;
+      background-color: #ffffff;
+      box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    }
+    label {
+      display: block;
+      margin-bottom: 5px;
+      font-weight: bold;
+      color: #555;
+    }
+    input[type="number"],
+    input[type="text"] {
+      width: calc(100% - 20px);
+      padding: 8px 10px;
+      margin-bottom: 10px;
+      border: 1px solid #ced4da;
+      border-radius: 5px;
+      box-sizing: border-box;
+      font-size: 14px;
+    }
+    .button-group {
+      display: flex;
+      gap: 10px;
+      margin-top: 15px;
+      justify-content: flex-end;
+    }
+    button {
+      padding: 8px 15px;
+      border: none;
+      border-radius: 5px;
+      cursor: pointer;
+      font-size: 14px;
+      font-weight: bold;
+      transition: background-color 0.2s ease;
+      box-shadow: 0 2px 3px rgba(0,0,0,0.1);
+    }
+    button.primary {
+      background-color: #007bff;
+      color: white;
+    }
+    button.primary:hover {
+      background-color: #0056b3;
+    }
+    button.secondary {
+      background-color: #6c757d;
+      color: white;
+    }
+    button.secondary:hover {
+      background-color: #5a6268;
+    }
+    #outputArea {
+      margin-top: 20px;
+      padding: 15px;
+      background-color: #e9ecef;
+      border: 1px solid #dee2e6;
+      border-radius: 5px;
+      white-space: pre-wrap; /* Preserve whitespace and wrap text */
+      font-family: monospace; /* Monospace for raw data view */
+      max-height: 400px; /* Limit height */
+      overflow-y: auto; /* Add scroll if content overflows */
+      box-shadow: inset 0 1px 3px rgba(0,0,0,0.1);
+    }
+    #message {
+      color: red;
+      margin-top: 10px;
+      font-size: 12px;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <label for="rowNumberInput">Row Number:</label>
+    <input type="number" id="rowNumberInput" placeholder="e.g., 15">
+
+    <label for="columnsInput">Columns (e.g., A:O or A,C,E):</label>
+    <input type="text" id="columnsInput" value="A:O" placeholder="e.g., A:O or A,B,C">
+
+    <div class="button-group">
+      <button class="secondary" id="resetButton">Reset</button>
+      <button class="primary" id="goButton">Go</button>
+    </div>
+
+    <div id="message"></div>
+  </div>
+
+  <div id="outputArea">
+    <!-- Output will be displayed here -->
+  </div>
+
+  <script>
+    // JavaScript for the sidebar
+    document.addEventListener('DOMContentLoaded', function() {
+      var rowNumberInput = document.getElementById('rowNumberInput');
+      var columnsInput = document.getElementById('columnsInput');
+      var goButton = document.getElementById('goButton');
+      var resetButton = document.getElementById('resetButton');
+      var outputArea = document.getElementById('outputArea');
+      var messageDiv = document.getElementById('message');
+
+      // Function to display messages
+      function showMessage(msg, isError = false) {
+        messageDiv.textContent = msg;
+        messageDiv.style.color = isError ? 'red' : 'green';
+      }
+
+      // Handle success from Apps Script
+      function onDataProcessed(result) {
+        outputArea.textContent = result;
+        showMessage("Data loaded successfully!", false);
+      }
+
+      // Handle errors from Apps Script
+      function onFailure(error) {
+        showMessage("Error: " + error.message, true);
+        outputArea.textContent = ""; // Clear previous output on error
+      }
+
+      // Function to process data
+      function processData() {
+        var rowNum = parseInt(rowNumberInput.value);
+        var columnsString = columnsInput.value.trim();
+
+        if (isNaN(rowNum) || rowNum < 1) {
+          showMessage("Please enter a valid row number (e.g., 15).", true);
+          return;
+        }
+        if (!columnsString) {
+          showMessage("Please enter columns to display (e.g., A:O or A,B,C).", true);
+          return;
+        }
+
+        showMessage("Loading...", false); // Show loading message
+        // Call Apps Script function
+        google.script.run
+          .withSuccessHandler(onDataProcessed)
+          .withFailureHandler(onFailure)
+          .processSelectedData(rowNum, columnsString);
+      }
+
+      // Event Listeners
+      goButton.addEventListener('click', processData);
+
+      // Allow 'Enter' key to trigger 'Go' button
+      rowNumberInput.addEventListener('keydown', function(event) {
+        if (event.key === 'Enter') {
+          processData();
+        }
+      });
+      columnsInput.addEventListener('keydown', function(event) {
+        if (event.key === 'Enter') {
+          processData();
+        }
+      });
+
+      resetButton.addEventListener('click', function() {
+        rowNumberInput.value = '';
+        columnsInput.value = 'A:O'; // Reset to default
+        outputArea.textContent = '';
+        showMessage("", false); // Clear message
+        // Call Apps Script to clear highlight
+        google.script.run.withFailureHandler(onFailure).clearHighlight();
+      });
+
+      // Load initial data (last row) when sidebar opens
+      google.script.run
+        .withSuccessHandler(function(data) {
+          if (data.lastRow) {
+            rowNumberInput.value = data.lastRow;
+            // Optionally, automatically process the last row on sidebar open
+            // processData();
+          }
+          showMessage("Working on sheet: " + data.activeSheetName, false);
+        })
+        .withFailureHandler(onFailure)
+        .getInitialData();
+    });
+  </script>
+</body>
+</html>
