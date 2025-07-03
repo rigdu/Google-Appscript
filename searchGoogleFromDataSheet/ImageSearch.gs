@@ -1,65 +1,41 @@
-/**
- * App Script: searchGoogleFromDataSheet
- * 
- * This script iterates through each row in the "Data" sheet and presents a dialog to search Google
- * using the Brand and Model columns for each row.
- */
+const PROPERTIES_KEY = 'lastUsedRow';
 
-function searchGoogleFromDataSheet() {
+function getImageSearchUrl(rowIndex) {
   const sheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName("Data");
-  const data = sheet.getDataRange().getValues();
-  const scriptProperties = PropertiesService.getScriptProperties();
-  scriptProperties.setProperty("currentRow", 1); // Reset on fresh run
+  const data = sheet.getRange(rowIndex, 2, 1, 3).getValues()[0]; // Columns B, C, D
+  const [brand, model, color] = data;
 
-  processNextItem();
+  if (!brand || !model) {
+    return { url: "", brand: brand || "", model: model || "", color: color || "" };
+  }
+
+  const query = `${brand} ${model} frame Color ${color}`;
+  const url = `https://www.google.com/search?tbm=isch&q=${encodeURIComponent(query)}`;
+
+  // Save last row
+  PropertiesService.getUserProperties().setProperty(PROPERTIES_KEY, rowIndex.toString());
+
+  return { url, brand, model, color: color || "NA" };
 }
 
-function processNextItem() {
-  const sheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName("Data");
-  const data = sheet.getDataRange().getValues();
-  const scriptProperties = PropertiesService.getScriptProperties();
-  let i = parseInt(scriptProperties.getProperty("currentRow"));
+function getLastUsedRow() {
+  const row = PropertiesService.getUserProperties().getProperty(PROPERTIES_KEY);
+  return row ? Number(row) : 2; // Default to 2
+}
 
-  if (i >= data.length) {
-    SpreadsheetApp.getUi().alert("✅ All rows processed.");
-    return;
-  }
+function highlightRow(rowIndex) {
+  const sheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName("ERP Exactlly");
+  if (!sheet) return;
 
-  const brand = data[i][1]; // Column B
-  const model = data[i][2]; // Column C
+  const range = sheet.getRange(rowIndex, 1, 1, sheet.getLastColumn());
+  const originalColors = range.getBackgrounds();
+  range.setBackground("#ffff00");
+  SpreadsheetApp.flush();
 
-  if (brand && model) {
-    const query = `${brand} ${model} frame`;
-    const url = `https://www.google.com/search?q=${encodeURIComponent(query)}`;
+  Utilities.sleep(3000);
+  range.setBackgrounds(originalColors);
 
-    const htmlContent = `
-      <html>
-        <body>
-          <p><strong>Brand:</strong> ${brand}<br>
-             <strong>Model:</strong> ${model}</p>
-          <p><a href="${url}" target="_blank">🔍 Click here to search on Google</a></p>
-          <button onclick="nextItem()">Next</button>
-          <button onclick="google.script.host.close()">Stop</button>
-         
-          <script>
-            function nextItem() {
-              google.script.run.withSuccessHandler(() => {
-                google.script.host.close();
-              }).processNextItem();
-            }
-          </script>
-        </body>
-      </html>
-    `;
-
-    const ui = HtmlService.createHtmlOutput(htmlContent)
-      .setWidth(300)
-      .setHeight(200);
-    SpreadsheetApp.getUi().showModalDialog(ui, 'Search & Proceed');
-  } else {
-    scriptProperties.setProperty("currentRow", (i + 1).toString());
-    processNextItem(); // Skip blank row
-  }
-
-  scriptProperties.setProperty("currentRow", (i + 1).toString());
+  // Also select column O
+  const cell = sheet.getRange(rowIndex, 15); // Column O
+  sheet.setActiveRange(cell);
 }
