@@ -35,9 +35,11 @@ function getInitialData() {
  * Processes the selected row and columns, highlights the row, and returns formatted data.
  * @param {number} rowNum The row number to process.
  * @param {string} columnsString A string representing columns (e.g., "A:O" or "A,B,C,D").
+ * @param {boolean} showHeaders Whether to show headers in the output.
+ * @param {number} headerRowNum The row number where headers are located.
  * @return {string} Formatted data from the selected cells.
  */
-function processSelectedData(rowNum, columnsString) {
+function processSelectedData(rowNum, columnsString, showHeaders, headerRowNum) {
   var sheet = SpreadsheetApp.getActiveSpreadsheet().getActiveSheet();
   var lastRowProperty = userProperties.getProperty('lastSelectedRow');
 
@@ -56,59 +58,74 @@ function processSelectedData(rowNum, columnsString) {
     throw new Error("Row number " + rowNum + " is out of valid range (1 to " + sheet.getLastRow() + ").");
   }
 
+  // Validate header row number if headers are to be shown
+  if (showHeaders && (headerRowNum < 1 || headerRowNum > sheet.getLastRow())) {
+    throw new Error("Header row number " + headerRowNum + " is out of valid range (1 to " + sheet.getLastRow() + ").");
+  }
+
   // Highlight the selected row
   sheet.getRange(rowNum, 1, 1, sheet.getLastColumn()).setBackground("#FFFF00"); // Yellow highlight
 
   // Store the current row number
   userProperties.setProperty('lastSelectedRow', rowNum.toString());
 
-  var values = [];
-  var columnRanges = [];
+  var formattedOutput = [];
+  var columnIndices = new Set(); // Use a Set to store unique column indices
 
   // Parse columnsString
   columnsString = columnsString.toUpperCase().replace(/\s/g, ''); // Clean up input
 
-  if (columnsString.includes(':')) {
-    // Handle range like "A:O"
-    var parts = columnsString.split(':');
-    if (parts.length === 2) {
-      var startCol = sheet.getRange(parts[0] + "1").getColumn();
-      var endCol = sheet.getRange(parts[1] + "1").getColumn();
-      if (startCol && endCol && startCol <= endCol) {
-        columnRanges.push({ start: startCol, end: endCol });
+  var parts = columnsString.split(',');
+  parts.forEach(function(part) {
+    if (part.includes(':')) {
+      // Handle range like "G:K"
+      var rangeParts = part.split(':');
+      if (rangeParts.length === 2) {
+        var startColLetter = rangeParts[0];
+        var endColLetter = rangeParts[1];
+        var startColIndex = sheet.getRange(startColLetter + "1").getColumn();
+        var endColIndex = sheet.getRange(endColLetter + "1").getColumn();
+
+        if (startColIndex && endColIndex && startColIndex <= endColIndex) {
+          for (var i = startColIndex; i <= endColIndex; i++) {
+            columnIndices.add(i);
+          }
+        } else {
+          throw new Error("Invalid column range: " + part);
+        }
       } else {
-        throw new Error("Invalid column range: " + columnsString);
+        throw new Error("Invalid column range format: " + part);
       }
     } else {
-      throw new Error("Invalid column range format: " + columnsString);
-    }
-  } else {
-    // Handle comma-separated list like "A,B,C"
-    var cols = columnsString.split(',');
-    cols.forEach(function(colLetter) {
-      var colIndex = sheet.getRange(colLetter + "1").getColumn();
+      // Handle single column letter like "A"
+      var colIndex = sheet.getRange(part + "1").getColumn();
       if (colIndex) {
-        columnRanges.push({ start: colIndex, end: colIndex });
+        columnIndices.add(colIndex);
       } else {
-        throw new Error("Invalid column letter: " + colLetter);
-      }
-    });
-  }
-
-  // Fetch and format values
-  columnRanges.forEach(function(range) {
-    for (var i = range.start; i <= range.end; i++) {
-      var cellValue = sheet.getRange(rowNum, i).getDisplayValue(); // Get formatted value
-      var headerValue = sheet.getRange(1, i).getDisplayValue(); // Get header from row 1
-      if (headerValue) {
-        values.push(headerValue + ": " + cellValue); // Header: Value
-      } else {
-        values.push(cellValue); // Just Value if no header
+        throw new Error("Invalid column letter: " + part);
       }
     }
   });
 
-  return values.join('\n'); // Join with newlines for streamed view
+  // Convert Set to Array and sort numerically
+  var sortedColumnIndices = Array.from(columnIndices).sort((a, b) => a - b);
+
+  // Fetch and format values
+  sortedColumnIndices.forEach(function(colIndex) {
+    var cellValue = sheet.getRange(rowNum, colIndex).getDisplayValue(); // Get formatted value from the selected row
+    var outputLine = "";
+
+    if (showHeaders) {
+      var headerValue = sheet.getRange(headerRowNum, colIndex).getDisplayValue(); // Get header from the specified header row
+      // Modified line: Format as "HeaderValue" - CellValue
+      outputLine = `"${headerValue}" - ${cellValue}`;
+    } else {
+      outputLine = cellValue; // Just the value if headers are not shown
+    }
+    formattedOutput.push(outputLine);
+  });
+
+  return formattedOutput.join('\n'); // Join with newlines for streamed view
 }
 
 /**
