@@ -1,0 +1,84 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <base target="_blank">
+  <style>
+    body { font-family: Arial, sans-serif; padding: 10px; }
+    input[type="text"] { width: 90%; padding: 6px; margin-bottom: 10px; }
+    button { padding: 6px 12px; margin-right: 5px; }
+    #result { margin-top: 10px; font-weight: bold; }
+    #suggestions { border: 1px solid #ccc; max-height: 100px; overflow-y: auto; width: 90%; }
+    #suggestions div {
+      padding: 5px; cursor: pointer;
+    }
+    #suggestions div:hover {
+      background-color: #eee;
+    }
+  </style>
+</head>
+<body>
+  <h3>Brand Licensor Search</h3>
+  <input type="text" id="brandInput" placeholder="Enter Brand Name" autocomplete="off" oninput="fetchSuggestions()" onkeydown="if(event.key==='Enter'){searchLicensor();}">
+  <div id="suggestions" style="display:none;"></div>
+  <div>
+    <button onclick="searchLicensor()">Search</button>
+    <button onclick="webSearch()" id="webSearchBtn" disabled>Web Search</button>
+  </div>
+  <div id="result"></div>
+
+  <script>
+    const input = document.getElementById('brandInput');
+    const suggestionsBox = document.getElementById('suggestions');
+    const webSearchBtn = document.getElementById('webSearchBtn');
+    let lastSearchedBrand = '';
+
+    // Fetch suggestions from server and show dropdown
+    function fetchSuggestions() {
+      const val = input.value.trim();
+      if (!val) {
+        suggestionsBox.style.display = 'none';
+        return;
+      }
+      google.script.run.withSuccessHandler(function(suggestions){
+        if (suggestions.length > 0) {
+          suggestionsBox.innerHTML = '';
+          suggestions.forEach(s => {
+            const div = document.createElement('div');
+            div.textContent = s;
+            div.onclick = () => {
+              input.value = s;
+              suggestionsBox.style.display = 'none';
+              searchLicensor();
+            };
+            suggestionsBox.appendChild(div);
+          });
+          suggestionsBox.style.display = 'block';
+        } else {
+          suggestionsBox.style.display = 'none';
+        }
+      }).getBrandSuggestions(val);
+    }
+
+    function searchLicensor() {
+      const brand = input.value.trim();
+      if (!brand) {
+        alert('Please enter a brand name');
+        return;
+      }
+      suggestionsBox.style.display = 'none';
+      google.script.run.withSuccessHandler(function(result) {
+        document.getElementById('result').textContent = result;
+        lastSearchedBrand = brand;
+        webSearchBtn.disabled = false;
+      }).searchLicensor(brand);
+    }
+
+    function webSearch() {
+      if (!lastSearchedBrand) return;
+      google.script.run.withSuccessHandler(function(url) {
+        window.open(url, '_blank');
+      }).buildBrandWebSearchUrl(lastSearchedBrand);
+    }
+  </script>
+</body>
+</html>
