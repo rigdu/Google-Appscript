@@ -79,6 +79,25 @@
       margin-top: 10px;
       font-size: 12px;
     }
+    .loader {
+      border: 4px solid #f3f3f3;
+      border-top: 4px solid #3498db;
+      border-radius: 50%;
+      width: 20px;
+      height: 20px;
+      animation: spin 2s linear infinite;
+      display: none; /* Hidden by default */
+      margin-left: 10px;
+    }
+    @keyframes spin {
+      0% { transform: rotate(0deg); }
+      100% { transform: rotate(360deg); }
+    }
+    .status-area {
+      display: flex;
+      align-items: center;
+      margin-top: 10px;
+    }
   </style>
 </head>
 <body>
@@ -94,11 +113,19 @@
       <button class="primary" id="goButton">Go</button>
     </div>
 
-    <div id="message"></div>
+    <div class="status-area">
+      <div id="message"></div>
+      <div class="loader" id="loader"></div>
+    </div>
   </div>
 
   <div id="outputArea">
     <!-- Output will be displayed here -->
+  </div>
+
+  <div class="button-group" style="justify-content: space-between; margin-top: 10px;">
+    <button class="secondary" id="clearOutputButton">Clear Output</button>
+    <button class="primary" id="copyOutputButton">Copy Output</button>
   </div>
 
   <script>
@@ -110,6 +137,9 @@
       var resetButton = document.getElementById('resetButton');
       var outputArea = document.getElementById('outputArea');
       var messageDiv = document.getElementById('message');
+      var loader = document.getElementById('loader');
+      var copyOutputButton = document.getElementById('copyOutputButton');
+      var clearOutputButton = document.getElementById('clearOutputButton');
 
       // Function to display messages
       function showMessage(msg, isError = false) {
@@ -117,14 +147,21 @@
         messageDiv.style.color = isError ? 'red' : 'green';
       }
 
+      // Show/hide loader
+      function showLoader(show) {
+        loader.style.display = show ? 'block' : 'none';
+      }
+
       // Handle success from Apps Script
       function onDataProcessed(result) {
+        showLoader(false);
         outputArea.textContent = result;
         showMessage("Data loaded successfully!", false);
       }
 
       // Handle errors from Apps Script
       function onFailure(error) {
+        showLoader(false);
         showMessage("Error: " + error.message, true);
         outputArea.textContent = ""; // Clear previous output on error
       }
@@ -144,6 +181,7 @@
         }
 
         showMessage("Loading...", false); // Show loading message
+        showLoader(true); // Show loader
         // Call Apps Script function
         google.script.run
           .withSuccessHandler(onDataProcessed)
@@ -171,9 +209,31 @@
         columnsInput.value = 'A:O'; // Reset to default
         outputArea.textContent = '';
         showMessage("", false); // Clear message
+        showLoader(false); // Hide loader
         // Call Apps Script to clear highlight
         google.script.run.withFailureHandler(onFailure).clearHighlight();
       });
+
+      clearOutputButton.addEventListener('click', function() {
+        outputArea.textContent = '';
+        showMessage("Output cleared.", false);
+      });
+
+      copyOutputButton.addEventListener('click', function() {
+        var textToCopy = outputArea.textContent;
+        if (textToCopy) {
+          var tempInput = document.createElement('textarea');
+          tempInput.value = textToCopy;
+          document.body.appendChild(tempInput);
+          tempInput.select();
+          document.execCommand('copy');
+          document.body.removeChild(tempInput);
+          showMessage("Output copied to clipboard!", false);
+        } else {
+          showMessage("Nothing to copy.", true);
+        }
+      });
+
 
       // Load initial data (last row) when sidebar opens
       google.script.run
